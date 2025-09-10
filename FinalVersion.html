@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Isabelle Diagram Editor - Fixed</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 200px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .sidebar h3 {
+            margin-bottom: 20px;
+            color: #333;
+            text-align: center;
+        }
+
+        .shape-button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            background: linear-gradient(45deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .shape-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4);
+        }
+
+        .sidebar-bottom {
+            position: absolute;
+            left: 5%;
+            bottom: 10px;
+            width: 180px;
+            display: block;
+            padding: 12px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            overflow-x: auto;
+        }
+
+        .generate-btn {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+
+        .encapsulate-btn {
+            background: linear-gradient(45deg, #fd79a8, #e84393);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .encapsulate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(253, 121, 168, 0.4);
+        }
+
+        .encapsulate-btn.active {
+            background: linear-gradient(45deg, #e84393, #fd79a8);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .canvas-viewport {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .canvas {
+            width: 100%;
+            height: 800vh;
+            background: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.3) 1px, transparent 0);
+            background-size: 20px 20px;
+            position: relative;
+            transition: transform 0.1s ease-out;
+        }
+
+        .shape {
+            position: absolute;
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: 2px solid #fff;
+            border-radius: 8px;
+            padding: 15px;
+            cursor: move;
+            user-select: none;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+            min-width: 100px;
+            text-align: center;
+            font-weight: bold;
+            z-index: 20;
+        }
+
+        .shape:hover {
+            transform: scale(1.05);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .shape.dragging {
+            z-index: 1000;
+            transform: rotate(5deg) scale(1.1);
+        }
+
+        .shape.selected-for-encapsulation {
+            border: 3px solid #e84393;
+            box-shadow: 0 0 20px rgba(232, 67, 147, 0.5);
+            z-index: 50;
+        }
+
+        .shape.encapsulated {
+            opacity: 0.6;
+            border: 2px dashed #95a5a6;
+        }
+
+        .shape.rectangle {
+            background: linear-gradient(45deg, #4facfe, #00f2fe);
+            width: 120px;
+            height: 80px;
+        }
+
+        .shape.circle {
+            background: linear-gradient(45deg, #43e97b, #38f9d7);
+            border-radius: 50%;
+            width: 120px;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .shape.diamond {
+            background: linear-gradient(45deg, #fa709a, #fee140);
+            border-radius: 0;
+            transform: rotate(45deg);
+            width: 100px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .shape.diamond-decision {
+            background: linear-gradient(45deg, #764ba2, #fee140);
+            border-radius: 0;
+            transform: rotate(45deg);
+            width: 100px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .shape.intro {
+            background: linear-gradient(45deg, #e84393, #fd79a8);
+            border-radius: 15px;
+            width: 150px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: bold;
+            border: 3px solid #fff;
+        }
+
+        .shape.encapsulation-result {
+            background: linear-gradient(45deg, #a8e6cf, #88d8a3);
+            border: 3px solid #4caf50;
+            box-shadow: 0 8px 25px rgba(76, 175, 80, 0.3);
+        }
+
+        .shape.encapsulation-result:hover {
+            transform: scale(1.05);
+            box-shadow: 0 12px 30px rgba(76, 175, 80, 0.4);
+        }
+
+        .shape.encapsulation-result .shape-text {
+            color: #2e7d32;
+            font-weight: bold;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 4px;
+            padding: 2px;
+        }
+
+        .shape.diamond .shape-text {
+            transform: translate(-50%, -50%) rotate(-45deg);
+        }
+
+        .shape.diamond-decision .shape-text {
+            transform: translate(-50%, -50%) rotate(-45deg);
+        }
+
+        .shape-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            height: 60%;
+            border: none;
+            background: transparent;
+            text-align: center;
+            font-size: 14px;
+            font-weight: bold;
+            color: black;
+            resize: none;
+            outline: none;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            cursor: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .shape-text:focus {
+            background: rgba(255, 255, 255, 0.8);
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .shape-text::placeholder {
+            color: #9ca3af;
+            font-style: italic;
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            width: 25px;
+            height: 25px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .delete-btn:hover {
+            background: #dc2626;
+            transform: scale(1.1);
+        }
+        .shape.diamond .delete-btn,
+        .shape.diamond-decision .delete-btn {
+            transform: rotate(-45deg);
+        }
+
+        .shape.diamond .delete-btn:hover,
+        .shape.diamond-decision .delete-btn:hover {
+            background: #dc2626;
+            transform: rotate(-45deg) scale(1.1);
+        }
+        .shape:hover .delete-btn {
+            display: flex;
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        .control-btn {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 1);
+            transform: translateY(-2px);
+        }
+
+        .control-btn.active {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+        }
+
+        .shape-counter {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 25px;
+            backdrop-filter: blur(10px);
+            font-weight: bold;
+            color: #333;
+        }
+
+        .scroll-indicator {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 16px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .scroll-indicator.visible {
+            opacity: 1;
+        }
+
+        .selection-box {
+            position: absolute;
+            border: 3px dashed #e84393;
+            background: rgba(232, 67, 147, 0.1);
+            backdrop-filter: blur(5px);
+            pointer-events: none;
+            z-index: 30;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(232, 67, 147, 0.3);
+        }
+
+        .encapsulation-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            max-width: 700px;
+            max-height: 80vh;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(15px);
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            z-index: 2000;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .encapsulation-panel.show {
+            display: flex;
+        }
+
+        .encapsulation-header {
+            background: linear-gradient(45deg, #e84393, #fd79a8);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .encapsulation-header h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s ease;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .encapsulation-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .encap-section {
+            margin-bottom: 20px;
+        }
+
+        .encap-section h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .encap-list {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .encap-list ul {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .encap-list li {
+            margin: 5px 0;
+            padding: 8px;
+            background: white;
+            border-radius: 4px;
+            border-left: 4px solid #e84393;
+        }
+
+        .encap-formula {
+            background: #e8f5e8;
+            border: 1px solid #c3e6c3;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            font-weight: bold;
+            color: #2d5a3d;
+            text-align: center;
+        }
+
+        .encap-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #e84393, #fd79a8);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(232, 67, 147, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        .isabelle-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            max-width: 900px;
+            max-height: 80vh;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(15px);
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            z-index: 2000;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .isabelle-panel.show {
+            display: flex;
+        }
+
+        .isabelle-header {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .isabelle-header h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .isabelle-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .code-section {
+            margin-bottom: 20px;
+        }
+
+        .code-section h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: #0056b3;
+        }
+
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .connection-line {
+            stroke: #000000;
+            stroke-width: 3;
+            fill: #000000;
+            marker-end: url(#arrowhead);
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+        }
+
+        .encapsulated-line {
+            stroke: #95a5a6;
+            stroke-width: 2;
+            stroke-dasharray: 5,5;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="sidebar">
+        <h3>Add Components</h3>
+        <div class="shape-buttons">
+            <button class="shape-button" onclick="addShape('rectangle')">Assumption</button>
+            <button class="shape-button" onclick="addShape('circle')">Theorem</button>
+            <button class="shape-button" onclick="addShape('diamond')">Proof</button>
+            <button class="shape-button" onclick="addShape('diamond-decision')">Decision</button>
+            <button class="shape-button" onclick="addShape('rectangle')">Result</button>
+        </div>
+        <div class="sidebar-bottom">
+            <button class="encapsulate-btn" id="encapsulateBtn" onclick="toggleEncapsulateMode()">📦 Encapsulate</button>
+            <button class="generate-btn" onclick="generateIsabelle()">📝 Generate Isabelle</button>
+        </div>
+    </div>
+
+    <div class="canvas-container">
+        <div class="controls">
+            <button class="control-btn" id="connectBtn" onclick="toggleConnectMode()">🔗 Connect Mode</button>
+            <button class="control-btn" onclick="clearCanvas()">🗑️ Clear All</button>
+        </div>
+
+        <div class="canvas-viewport" id="canvasViewport">
+            <div class="canvas" id="canvas">
+                <svg id="connectionSvg">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7"
+                                refX="9" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#4facfe" />
+                        </marker>
+                    </defs>
+                </svg>
+            </div>
+        </div>
+
+        <div class="shape-counter" id="counter">Components number: 0</div>
+        <div class="scroll-indicator" id="scrollIndicator">Scroll: 0%</div>
+    </div>
+</div>
+
+<!-- Encapsulation panel -->
+<div class="encapsulation-panel" id="encapsulationPanel">
+    <div class="encapsulation-header">
+        <h3>🔬 Encapsulation of the Proof Process</h3>
+        <button class="close-btn" onclick="closeEncapsulationPanel()">×</button>
+    </div>
+    <div class="encapsulation-content">
+        <div class="encap-section">
+            <h4>📥 Input Conditions</h4>
+            <div class="encap-list" id="inputList">
+                <!-- List of input conditions -->
+            </div>
+        </div>
+        <div class="encap-section">
+            <h4>⚙️ Proof Procedure</h4>
+            <div class="encap-list" id="proofStepsList">
+                <!--  List of proof steps -->
+            </div>
+        </div>
+        <div class="encap-section">
+            <h4>📤 Output results</h4>
+            <div class="encap-list" id="outputList">
+                <!-- List of output results -->
+            </div>
+        </div>
+        <div class="encap-section">
+            <h4>🎯 Encapsulation Formula</h4>
+            <div class="encap-formula" id="encapFormula">
+                <!-- Formula generated by the encapsulation -->
+            </div>
+        </div>
+        <div class="encap-buttons">
+            <button class="btn btn-primary" onclick="confirmEncapsulation()">Confirm</button>
+            <button class="btn btn-secondary" onclick="cancelEncapsulation()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Isabelle代码生成面板 -->
+<div class="isabelle-panel" id="isabellePanel">
+    <div class="isabelle-header">
+        <h3>🔬 Isabelle Generation</h3>
+        <button class="close-btn" onclick="closeIsabellePanel()">×</button>
+    </div>
+    <div class="isabelle-content">
+        <div class="code-section">
+            <h4>📋 Analysis of Reasoning Steps</h4>
+            <div class="code-block" id="analysisBlock">
+                <!-- Contents of all analysis -->
+            </div>
+        </div>
+        <div class="code-section">
+            <h4>⚡ Isabelle Code</h4>
+            <div class="code-block" id="codeBlock">
+                <button class="copy-btn" onclick="copyCode()">Copy</button>
+                <!-- Complete Isabelle code -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="FinalVersion.js"></script>
+</body>
+</html>
